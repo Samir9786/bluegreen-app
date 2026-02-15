@@ -3,36 +3,39 @@ name: Blue-Green Deploy
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout Code
+        uses: actions/checkout@v3
 
-    - name: Login DockerHub
-      run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+      - name: Show Files (Debug)
+        run: ls -la
 
-    - name: Build Image
-      run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest .
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-    - name: Push Image
-      run: docker push ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest .
 
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@master
-      with:
-        host: ${{ secrets.EC2_HOST }}
-        username: ubuntu
-        key: ${{ secrets.EC2_KEY }}
-        script: |
-          docker pull ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest
-          docker stop green || true
-          docker rm green || true
-          docker run -d -p 3002:3000 --name green ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest
-          sudo sed -i 's/3001/3002/' /etc/nginx/sites-available/default
-          sudo systemctl restart nginx
+      - name: Push Docker Image
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest
+            docker stop green || true
+            docker rm green || true
+            docker run -d -p 3002:3000 --name green ${{ secrets.DOCKER_USERNAME }}/bluegreen-app:latest
+            sudo sed -i 's/3001/3002/' /etc/nginx/sites-available/default
+            sudo systemctl restart nginx
